@@ -1,17 +1,21 @@
-import CtyptoTable from "@/components/ CryptoTable";
+import CoinPriceMarqueeWidget from "@/components/CoinPriceMarqueeWidget";
+import CtyptoTable from "@/components/CryptoTable";
 import {
+  Box,
   Divider,
   FormControl,
   MenuItem,
+  Pagination,
   Select,
   Stack,
   Typography,
 } from "@mui/material";
 import Button from "@mui/material/Button";
+import { useQuery } from "@tanstack/react-query";
 import axios from "axios";
 import { Inter } from "next/font/google";
 import Head from "next/head";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 const inter = Inter({ subsets: ["latin"] });
 
 const categories = [
@@ -33,31 +37,63 @@ const categories = [
   },
 ];
 
+type Params = {
+  tagSlugs?: string;
+  limit: number;
+  start: number;
+};
+
 export default function Home() {
-  const [data, setdata] = useState<any>();
-  useEffect(() => {
-    (async () => {
-      const s = await axios("/api/market", {
-        params: {
-          limit: 5,
-          tagSlugs: "memes", // solana-ecosystem gaming ai-big-data
-        },
+  const [filters, setFilters] = useState<Params>({
+    tagSlugs: undefined,
+    limit: 50,
+    start: 1,
+  });
+
+  const { data, isLoading } = useQuery({
+    queryKey: ["coins", filters],
+    queryFn: async () => {
+      const res = await axios("/api/market", {
+        params: filters,
       });
-      setdata(s.data.data);
-    })();
-  }, []);
-  const [open, setOpen] = useState(false);
+      return res.data;
+    },
+  });
 
-  const handleDrawerOpen = () => {
-    setOpen(true);
+  const handleViewDetail = () => {};
+
+  const renderRowsPerPage = () => {
+    return (
+      <Stack direction={"row"} spacing={1} alignItems={"center"}>
+        <Typography
+          variant="subtitle2"
+          color={"#cfd6e4"}
+          sx={{
+            whiteSpace: "nowrap",
+          }}
+        >
+          Show rows
+        </Typography>
+        <FormControl fullWidth>
+          <Select
+            labelId="demo-simple-select-label"
+            id="demo-simple-select"
+            autoWidth
+            onChange={(e) => {
+              setFilters((prev) => ({ ...prev, limit: +e.target.value }));
+            }}
+            size="small"
+            value={filters.limit}
+          >
+            <MenuItem value={20}>20</MenuItem>
+            <MenuItem value={50}>50</MenuItem>
+            <MenuItem value={100}>100</MenuItem>
+          </Select>
+        </FormControl>
+      </Stack>
+    );
   };
 
-  const handleDrawerClose = () => {
-    setOpen(false);
-  };
-  const handleViewDetail = () => {
-    handleDrawerOpen();
-  };
   return (
     <>
       <Head>
@@ -80,51 +116,71 @@ export default function Home() {
           <img src="/logo.png" width={116} />
           <img src="/logo.svg" />
         </Stack>
-        <Stack direction="column" className="screen">
+
+        <Box className="screen" pb={2}>
+          <CoinPriceMarqueeWidget />
+        </Box>
+
+        <Stack direction="column" className="screen" spacing={1}>
           <Stack direction={"row"} spacing={1} justifyContent="space-between">
             <Stack direction="row" spacing={1}>
-              <Button variant="outlined">Cryptocurrencies</Button>
+              <Button
+                color={!filters.tagSlugs ? "primary" : "secondary"}
+                variant={!filters.tagSlugs ? "outlined" : "text"}
+                onClick={() =>
+                  setFilters((prev) => ({ ...prev, tagSlugs: undefined }))
+                }
+              >
+                Cryptocurrencies
+              </Button>
               <Divider orientation="vertical" variant="middle" flexItem />
               {categories.map((x) => (
-                <Button color="secondary" key={x.id} variant="text">
+                <Button
+                  key={x.id}
+                  color={x.id === filters.tagSlugs ? "primary" : "secondary"}
+                  variant={x.id === filters.tagSlugs ? "outlined" : "text"}
+                  onClick={() =>
+                    setFilters((prev) => ({ ...prev, tagSlugs: x.id }))
+                  }
+                >
                   🔥 {x.label}
                 </Button>
               ))}
             </Stack>
 
-            <Stack direction={"row"} spacing={1} alignItems={"center"}>
-              <Typography
-                variant="subtitle2"
-                color={"#cfd6e4"}
-                sx={{
-                  whiteSpace: "nowrap",
-                }}
-              >
-                Show rows
-              </Typography>
-              <FormControl fullWidth>
-                <Select
-                  labelId="demo-simple-select-label"
-                  id="demo-simple-select"
-                  autoWidth
-                  // value={age}
-                  // label="Age"
-                  // onChange={handleChange}
-                  size="small"
-                  defaultValue={50}
-                >
-                  <MenuItem value={20}>20</MenuItem>
-                  <MenuItem value={50}>50</MenuItem>
-                  <MenuItem value={100}>100</MenuItem>
-                </Select>
-              </FormControl>
-            </Stack>
+            {renderRowsPerPage()}
           </Stack>
+
           <CtyptoTable
             rows={data?.cryptoCurrencyList || []}
             total={data?.totalCount}
             handleViewDetail={handleViewDetail}
+            rowsPerPage={filters.limit}
+            loading={isLoading}
           />
+          <Stack
+            direction={"row"}
+            justifyContent={"space-between"}
+            alignItems="center"
+          >
+            <Typography>
+              Showing {filters.start} - {filters.start - 1 + filters.limit} out
+              of {data?.totalCount}
+            </Typography>
+            <Pagination
+              size="large"
+              count={Math.round(data?.totalCount / filters.limit)}
+              variant="outlined"
+              shape="rounded"
+              onChange={(e, newPage) => {
+                setFilters((prev) => ({
+                  ...prev,
+                  start: (newPage - 1) * prev.limit + 1,
+                }));
+              }}
+            />
+            {renderRowsPerPage()}
+          </Stack>
         </Stack>
       </main>
     </>

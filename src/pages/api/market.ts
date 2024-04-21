@@ -33,7 +33,7 @@ export default async function handler(
       //     },
       //   }
     );
-    res.status(200).json(response.data);
+    res.status(200).json(response.data.data);
   } catch (ex) {
     // error
     res.status(500);
